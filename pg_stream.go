@@ -46,9 +46,13 @@ var pgStreamConfigSpec = service.NewConfigSpec().
 		Example(true).
 		Default(false)).
 	Field(service.NewFloatField("snapshot_memory_safety_factor").
-		Description("Sets amout of memory that can be used to stream snapshot. If affects batch sizes. If we want to use only 25% of the memory available - put 0.25 factor. It will make initial streaming slower, but it will prevent your worker from OOM Kill").
+		Description("Sets amount of memory that can be used to stream snapshot. If affects batch sizes. If we want to use only 25% of the memory available - put 0.25 factor. It will make initial streaming slower, but it will prevent your worker from OOM Kill").
 		Example(0.2).
 		Default(0.5)).
+	Field(service.NewIntField("snapshot_batch_size").
+		Description("Specifies number of messages in one batch while reading the snapshot. If set 0 - automatic batch size will be applied").
+		Example(10_000).
+		Default(10_000)).
 	Field(service.NewStringListField("tables").
 		Example(`
 			- my_table
@@ -76,6 +80,7 @@ func newPgStreamInput(conf *service.ParsedConfig, logger *service.Logger) (s ser
 		redisUri                string
 		streamSnapshot          bool
 		snapshotMemSafetyFactor float64
+		snapshotBatchSize       int
 	)
 
 	dbSchema, err = conf.FieldString("schema")
@@ -132,6 +137,11 @@ func newPgStreamInput(conf *service.ParsedConfig, logger *service.Logger) (s ser
 		return nil, err
 	}
 
+	snapshotBatchSize, err = conf.FieldInt("snapshot_batch_size")
+	if err != nil {
+		return nil, err
+	}
+
 	redisUri, err = conf.FieldString("checkpoint_storage")
 	if err != nil {
 		return nil, err
@@ -150,6 +160,7 @@ func newPgStreamInput(conf *service.ParsedConfig, logger *service.Logger) (s ser
 		},
 		streamSnapshot:          streamSnapshot,
 		snapshotMemSafetyFactor: snapshotMemSafetyFactor,
+		snapshotBatchSize:       snapshotBatchSize,
 		slotName:                dbSlotName,
 		schema:                  dbSchema,
 		tables:                  tables,
@@ -181,6 +192,7 @@ type pgStreamInput struct {
 	tables                  []string
 	streamSnapshot          bool
 	snapshotMemSafetyFactor float64
+	snapshotBatchSize       int
 	logger                  *service.Logger
 }
 
@@ -211,6 +223,7 @@ func (p *pgStreamInput) Connect(ctx context.Context) error {
 		TlsVerify:                  "require",
 		StreamOldData:              p.streamSnapshot,
 		SnapshotMemorySafetyFactor: p.snapshotMemSafetyFactor,
+		BatchSize:                  p.snapshotBatchSize,
 		SeparateChanges:            true,
 	}, checkPointer)
 	if err != nil {
