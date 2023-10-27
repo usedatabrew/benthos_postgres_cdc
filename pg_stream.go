@@ -53,6 +53,16 @@ var pgStreamConfigSpec = service.NewConfigSpec().
 		Description("Specifies number of messages in one batch while reading the snapshot. If set 0 - automatic batch size will be applied").
 		Example(10_000).
 		Default(10_000)).
+	Field(service.NewObjectListField("plugin_schema",
+		service.NewStringField("table"),
+		service.NewObjectListField("columns",
+			service.NewStringField("name").Description("Name of the column"),
+			service.NewStringField("databrewType").Description("Apache Arrow type that will be used"),
+			service.NewStringField("nativeConnectorType").Description("PostgreSQL column type"),
+			service.NewBoolField("pk").Description("Specify the column as Primary Key"),
+			service.NewBoolField("nullable").Description("Specify nullable field"),
+		),
+	)).
 	Field(service.NewStringListField("tables").
 		Example(`
 			- my_table
@@ -147,6 +157,13 @@ func newPgStreamInput(conf *service.ParsedConfig, logger *service.Logger) (s ser
 		return nil, err
 	}
 
+	var schemaConfig []*service.ParsedConfig
+	schemaConfig, err = conf.FieldObjectList("plugin_schema")
+	if err != nil {
+		return nil, err
+	}
+	dbTableSchemas := buildDataSchemas(schemaConfig)
+
 	return service.AutoRetryNacks(&pgStreamInput{
 		dbConfig: pgconn.Config{
 			Host:     dbHost,
@@ -162,6 +179,7 @@ func newPgStreamInput(conf *service.ParsedConfig, logger *service.Logger) (s ser
 		snapshotMemSafetyFactor: snapshotMemSafetyFactor,
 		snapshotBatchSize:       snapshotBatchSize,
 		slotName:                dbSlotName,
+		tablesSchema:            dbTableSchemas,
 		schema:                  dbSchema,
 		tables:                  tables,
 		redisUri:                redisUri,
@@ -190,6 +208,7 @@ type pgStreamInput struct {
 	slotName                string
 	schema                  string
 	tables                  []string
+	tablesSchema            []pglogicalstream.DbTablesSchema
 	streamSnapshot          bool
 	snapshotMemSafetyFactor float64
 	snapshotBatchSize       int
@@ -218,7 +237,7 @@ func (p *pgStreamInput) Connect(ctx context.Context) error {
 		DbPort:                     int(p.dbConfig.Port),
 		DbName:                     p.dbConfig.Database,
 		DbSchema:                   p.schema,
-		DbTables:                   p.tables,
+		DbTablesSchema:             p.tablesSchema,
 		ReplicationSlotName:        fmt.Sprintf("rs_%s", p.slotName),
 		TlsVerify:                  "require",
 		StreamOldData:              p.streamSnapshot,

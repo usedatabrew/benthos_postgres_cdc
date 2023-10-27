@@ -5,11 +5,12 @@ go 1.21.1
 toolchain go1.21.2
 
 require (
+	github.com/apache/arrow/go/arrow v0.0.0-20211112161151-bc219186db40
 	github.com/benthosdev/benthos/v4 v4.22.0
 	github.com/go-redis/redis/v7 v7.4.1
 	github.com/jackc/pgx/v5 v5.4.3
 	github.com/lucasepe/codename v0.2.0
-	github.com/usedatabrew/pglogicalstream v0.0.8
+	github.com/usedatabrew/pglogicalstream v0.0.10
 )
 
 require (
