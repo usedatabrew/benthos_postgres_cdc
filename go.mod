@@ -10,7 +10,7 @@ require (
 	github.com/go-redis/redis/v7 v7.4.1
 	github.com/jackc/pgx/v5 v5.4.3
 	github.com/lucasepe/codename v0.2.0
-	github.com/usedatabrew/pglogicalstream v0.0.10
+	github.com/usedatabrew/pglogicalstream v0.0.11
 )
 
 require (

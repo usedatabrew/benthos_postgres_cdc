@@ -3,6 +3,7 @@ package pg_stream
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/benthosdev/benthos/v4/public/service"
@@ -257,7 +258,14 @@ func (p *pgStreamInput) Connect(ctx context.Context) error {
 func (p *pgStreamInput) Read(ctx context.Context) (*service.Message, service.AckFunc, error) {
 	select {
 	case snapshotMessage := <-p.pglogicalStream.SnapshotMessageC():
-		return service.NewMessage(snapshotMessage), func(ctx context.Context, err error) error {
+		snapshotMessageEncoded, _ := json.Marshal(&snapshotMessage)
+		createdMessage := service.NewMessage(snapshotMessageEncoded)
+		// snapshot messages are produced one by one.
+		// therefore we can assume that 0 index always contains the table with changes
+		createdMessage.MetaSet("table", snapshotMessage.Changes[0].Table)
+		createdMessage.MetaSet("schema", snapshotMessage.Changes[0].Schema)
+		createdMessage.MetaSet("event", snapshotMessage.Changes[0].Kind)
+		return createdMessage, func(ctx context.Context, err error) error {
 			// Nacks are retried automatically when we use service.AutoRetryNacks
 			//message.ServerHeartbeat.
 
@@ -265,7 +273,14 @@ func (p *pgStreamInput) Read(ctx context.Context) (*service.Message, service.Ack
 			return nil
 		}, nil
 	case message := <-p.pglogicalStream.LrMessageC():
-		return service.NewMessage(message), func(ctx context.Context, err error) error {
+		messageEncoded, _ := json.Marshal(&message)
+		createdMessage := service.NewMessage(messageEncoded)
+		// messages are produced one by one.
+		// therefore we can assume that 0 index always contains the table with changes
+		createdMessage.MetaSet("table", message.Changes[0].Table)
+		createdMessage.MetaSet("schema", message.Changes[0].Schema)
+		createdMessage.MetaSet("event", message.Changes[0].Kind)
+		return createdMessage, func(ctx context.Context, err error) error {
 			// Nacks are retried automatically when we use service.AutoRetryNacks
 			//message.ServerHeartbeat.
 
