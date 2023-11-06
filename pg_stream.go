@@ -260,7 +260,7 @@ func (p *pgStreamInput) Read(ctx context.Context) (*service.Message, service.Ack
 	case snapshotMessage := <-p.pglogicalStream.SnapshotMessageC():
 		// messages are produced one by one.
 		// therefore we can assume that 0 index always contains the table with changes
-		snapshotMessageEncoded, _ := json.Marshal(&snapshotMessage.Changes[0].Row)
+		snapshotMessageEncoded, _ := json.Marshal(&snapshotMessage.Changes[0].Row.([]interface{})[0])
 		createdMessage := service.NewMessage(snapshotMessageEncoded)
 		// snapshot messages are produced one by one.
 		// therefore we can assume that 0 index always contains the table with changes
@@ -277,7 +277,7 @@ func (p *pgStreamInput) Read(ctx context.Context) (*service.Message, service.Ack
 	case message := <-p.pglogicalStream.LrMessageC():
 		// messages are produced one by one.
 		// therefore we can assume that 0 index always contains the table with changes
-		messageEncoded, _ := json.Marshal(&message.Changes[0].Row)
+		messageEncoded, _ := json.Marshal(&message.Changes[0].Row.([]interface{})[0])
 		createdMessage := service.NewMessage(messageEncoded)
 		createdMessage.MetaSet("table", message.Changes[0].Table)
 		createdMessage.MetaSet("schema", message.Changes[0].Schema)
