@@ -269,6 +269,7 @@ func (p *pgStreamInput) Read(ctx context.Context) (*service.Message, service.Ack
 		// snapshot messages are produced one by one.
 		// therefore we can assume that 0 index always contains the table with changes
 		createdMessage.MetaSet("table", snapshotMessage.Changes[0].Table)
+		createdMessage.MetaSet("snapshot", "true")
 		createdMessage.MetaSet("schema", snapshotMessage.Changes[0].Schema)
 		createdMessage.MetaSet("event", snapshotMessage.Changes[0].Kind)
 		return createdMessage, func(ctx context.Context, err error) error {
